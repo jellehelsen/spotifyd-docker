@@ -25,13 +25,6 @@ pipeline {
                     imagePullPolicy: Always
                     command:
                       - cat
-                    env:
-                      - name: DOCKER_HOST
-                        value: tcp://localhost:2376
-                      - name: DOCKER_CERT_PATH
-                        value: /certs/server
-                      - name: DOCKER_TLS_VERIFY
-                        value: "1"
                     tty: true
                     volumeMounts:
                       - name: dind-certs
@@ -55,14 +48,9 @@ pipeline {
         stage("Build") {
             steps {
                 container("docker") {
-                    sh 'docker build . -t registry.hcode.be/spotifyd:latest'
-                }
-            }
-        }
-        stage("Push") {
-            steps {
-                container("docker") {
-                    sh 'docker push registry.hcode.be/spotifyd:latest'
+                    sh 'docker context create build --docker "host=tcp://localhost:2376,ca=/certs/ca/cert.pem,cert=/certs/client/cert.pem,key=/certs/client/key.pem" && docker context use build'
+                    sh 'docker buildx create --name container --driver=docker-container --use'
+                    sh 'docker buildx build --platform linux/amd64,linux/arm64 --push -t registry.hcode.be/spotifyd:latest .'
                 }
             }
         }
